@@ -1,0 +1,248 @@
+@model WaitWise.ViewModels.TicketTrackerViewModel
+
+@{
+    ViewData["Title"] = Model.HasTicket ? $"Tracking Ticket {Model.TicketNumber}" : "Track Your Ticket";
+}
+
+<div class="row justify-content-center my-4">
+    <div class="col-lg-7">
+        <!-- Search Bar (Always available) -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-3">
+                <form asp-action="Track" method="get" class="d-flex gap-2">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0 rounded-start-pill ps-3 text-muted">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" name="ticketNumber" value="@Model.SearchQuery" 
+                               class="form-control border-start-0 py-2 text-uppercase fw-bold" 
+                               placeholder="ENTER TICKET NUMBER (E.G. A-101)" required />
+                    </div>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold">
+                        Track
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-warning border-0 shadow-sm rounded-4 p-4 text-center">
+                <i class="bi bi-exclamation-triangle-fill fs-2 text-warning mb-2 d-block"></i>
+                <h5 class="fw-bold">Ticket Not Found</h5>
+                <p class="text-muted mb-3">@Model.ErrorMessage</p>
+                <a asp-action="Book" class="btn btn-primary rounded-pill px-4">Take a New Ticket</a>
+            </div>
+        }
+        else if (Model.HasTicket)
+        {
+            <!-- Ticket Card -->
+            <div class="card border-0 shadow-lg rounded-4 overflow-hidden position-relative">
+                <!-- Status Banner -->
+                <div id="status-banner" class="p-4 text-center text-white @(Model.Status == WaitWise.Models.Enums.TicketStatus.Serving ? "bg-success" : Model.Status == WaitWise.Models.Enums.TicketStatus.Completed ? "bg-secondary" : "bg-primary")">
+                    <span class="badge bg-white bg-opacity-25 rounded-pill px-3 py-1 small mb-2 text-uppercase fw-bold tracking-wider">
+                        @Model.DepartmentName
+                    </span>
+                    <h1 class="display-3 fw-bolder mb-1 letter-spacing-1" id="ticket-number-display">@Model.TicketNumber</h1>
+                    <h5 class="fw-medium opacity-90 mb-0">Customer: <strong>@Model.CustomerName</strong></h5>
+                </div>
+
+                <div class="card-body p-4 p-md-5">
+                    <!-- Serving Alert (Displayed when ticket is being served) -->
+                    <div id="serving-callout" class="@(Model.Status == WaitWise.Models.Enums.TicketStatus.Serving ? "" : "d-none") alert alert-success border-2 border-success shadow-sm rounded-4 p-4 text-center mb-4 animate-pulse">
+                        <div class="d-inline-flex align-items-center justify-content-center bg-success text-white rounded-circle mb-2" style="width: 48px; height: 48px;">
+                            <i class="bi bi-megaphone-fill fs-4"></i>
+                        </div>
+                        <h3 class="fw-bold text-success mb-1">It's Your Turn!</h3>
+                        <p class="fs-5 mb-0 text-dark">
+                            Please proceed immediately to: <strong class="badge bg-success fs-5 px-3 py-2" id="serving-counter-name">@(Model.CounterName ?? "Service Desk")</strong>
+                        </p>
+                    </div>
+
+                    <!-- Completed Alert -->
+                    <div id="completed-callout" class="@(Model.Status == WaitWise.Models.Enums.TicketStatus.Completed ? "" : "d-none") alert alert-secondary rounded-4 p-4 text-center mb-4">
+                        <i class="bi bi-check-circle-fill fs-2 text-success mb-2 d-block"></i>
+                        <h4 class="fw-bold text-dark">Service Completed</h4>
+                        <p class="text-muted mb-0">Your consultation is complete. Thank you for using WAITWISE!</p>
+                    </div>
+
+                    <!-- Waiting Predictor Progress Section -->
+                    <div id="waiting-section" class="@(Model.Status == WaitWise.Models.Enums.TicketStatus.Waiting ? "" : "d-none")">
+                        <div class="row g-3 text-center mb-4">
+                            <div class="col-sm-6">
+                                <div class="p-3 bg-light rounded-4 border">
+                                    <span class="text-muted small fw-bold text-uppercase d-block mb-1">People Ahead in Line</span>
+                                    <h2 class="display-6 fw-bold text-primary mb-0" id="people-ahead-display">
+                                        @(Model.Prediction?.PeopleAhead ?? 0)
+                                    </h2>
+                                    <span class="text-muted small">in @Model.DepartmentName</span>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="p-3 bg-light rounded-4 border">
+                                    <span class="text-muted small fw-bold text-uppercase d-block mb-1">Estimated Wait Time</span>
+                                    <h2 class="display-6 fw-bold text-warning mb-0">
+                                        ~<span id="wait-minutes-display">@(Model.Prediction?.EstimatedWaitMinutes ?? 0)</span> <small class="fs-5">mins</small>
+                                    </h2>
+                                    <span class="text-muted small" id="eta-time-display">
+                                        ETA: @(Model.Prediction?.EstimatedCallTime.ToString("hh:mm tt") ?? "--:--")
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Congestion & Status Breakdown -->
+                        <div class="p-3 bg-light rounded-3 border mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small text-muted fw-semibold">Current Queue Health:</span>
+                                <span id="congestion-badge" class="badge @(Model.Prediction?.CongestionBadgeClass ?? "bg-success") px-3 py-1 rounded-pill">
+                                    @(Model.Prediction?.CongestionLevel ?? "Smooth Flow")
+                                </span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center small text-muted">
+                                <span>Active Serving Desks:</span>
+                                <strong id="active-counters-display" class="text-dark">@(Model.Prediction?.ActiveCounters ?? 1) Desk(s) Active</strong>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center small text-muted mt-1">
+                                <span>Dynamic Average Turnaround:</span>
+                                <strong id="avg-duration-display" class="text-dark">~@(Model.Prediction?.AverageServiceDurationMinutes ?? 10) mins/person</strong>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info py-2 px-3 small rounded-3 d-flex align-items-center mb-0">
+                            <i class="bi bi-info-circle-fill me-2 fs-5"></i>
+                            <span id="status-message-display">@(Model.Prediction?.StatusMessage ?? "You will be alerted the moment your counter is ready.")</span>
+                        </div>
+                    </div>
+
+                    <!-- Connection & Live Status Footer -->
+                    <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top text-muted small">
+                        <span>Ticket Issued: <strong>@Model.CreatedAt.ToLocalTime().ToString("hh:mm tt")</strong></span>
+                        <span id="signalr-connection-badge" class="badge bg-success rounded-pill px-2 py-1">
+                            <i class="bi bi-broadcast me-1"></i> Live Auto-Sync
+                        </span>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <!-- Default Landing when no ticket is queried -->
+            <div class="card border-0 shadow-sm rounded-4 p-5 text-center bg-white">
+                <div class="d-inline-flex align-items-center justify-content-center bg-primary-subtle text-primary rounded-circle mx-auto mb-3" style="width: 64px; height: 64px;">
+                    <i class="bi bi-search fs-2"></i>
+                </div>
+                <h4 class="fw-bold text-dark">Track Your Active Ticket</h4>
+                <p class="text-muted mb-4">Enter your ticket number above to view your exact queue position, live countdown, and counter notification.</p>
+                <div>
+                    <a asp-action="Book" class="btn btn-outline-primary rounded-pill px-4">
+                        <i class="bi bi-ticket-perforated me-1"></i> I Don't Have a Ticket Yet
+                    </a>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    @if (Model.HasTicket)
+    {
+        <script src="~/js/signalr/signalr.min.js"></script>
+        <script src="~/js/queue-realtime.js"></script>
+        <script>
+            const currentTicketNumber = "@Model.TicketNumber";
+            const currentDepartmentId = @Model.DepartmentId;
+
+            async function refreshTicketStatus() {
+                try {
+                    const response = await fetch(`/Queue/GetTicketStatusJson?ticketNumber=${encodeURIComponent(currentTicketNumber)}`);
+                    if (!response.ok) return;
+                    const data = await response.json();
+
+                    // Update People Ahead & Wait Time
+                    const aheadEl = document.getElementById("people-ahead-display");
+                    const waitEl = document.getElementById("wait-minutes-display");
+                    const statusMsgEl = document.getElementById("status-message-display");
+                    const congestionEl = document.getElementById("congestion-badge");
+
+                    if (aheadEl) aheadEl.innerText = data.peopleAhead;
+                    if (waitEl) waitEl.innerText = data.estimatedWaitMinutes;
+                    if (statusMsgEl) statusMsgEl.innerText = data.statusMessage;
+                    if (congestionEl) {
+                        congestionEl.innerText = data.congestionLevel;
+                        congestionEl.className = `badge ${data.congestionBadgeClass} px-3 py-1 rounded-pill`;
+                    }
+
+                    // Check if ticket status shifted to Serving
+                    if (data.status === "Serving") {
+                        triggerServingState(data.counterName);
+                    } else if (data.status === "Completed") {
+                        triggerCompletedState();
+                    }
+                } catch (err) {
+                    console.error("Error refreshing ticket status:", err);
+                }
+            }
+
+            function triggerServingState(counterName) {
+                const banner = document.getElementById("status-banner");
+                const servingCallout = document.getElementById("serving-callout");
+                const waitingSection = document.getElementById("waiting-section");
+                const counterNameEl = document.getElementById("serving-counter-name");
+
+                if (banner) {
+                    banner.className = "p-4 text-center text-white bg-success";
+                }
+                if (counterNameEl) {
+                    counterNameEl.innerText = counterName || "Service Counter";
+                }
+                if (servingCallout) servingCallout.classList.remove("d-none");
+                if (waitingSection) waitingSection.classList.add("d-none");
+
+                // Play Audio Chime & Speak Announcement
+                WaitWiseRealtime.playChime();
+                WaitWiseRealtime.announceTicket(currentTicketNumber, counterName || "Service Desk");
+            }
+
+            function triggerCompletedState() {
+                const banner = document.getElementById("status-banner");
+                const servingCallout = document.getElementById("serving-callout");
+                const waitingSection = document.getElementById("waiting-section");
+                const completedCallout = document.getElementById("completed-callout");
+
+                if (banner) banner.className = "p-4 text-center text-white bg-secondary";
+                if (servingCallout) servingCallout.classList.add("d-none");
+                if (waitingSection) waitingSection.classList.add("d-none");
+                if (completedCallout) completedCallout.classList.remove("d-none");
+            }
+
+            document.addEventListener('DOMContentLoaded', async () => {
+                const conn = WaitWiseRealtime.getConnection();
+
+                // Listen for ticket call events
+                conn.on("TicketCalled", (callData) => {
+                    if (callData && callData.ticketNumber === currentTicketNumber) {
+                        triggerServingState(callData.counterName);
+                    }
+                });
+
+                // Listen for department queue updates (someone finished or was called)
+                conn.on("QueueUpdated", (deptId) => {
+                    if (deptId === currentDepartmentId || !deptId) {
+                        refreshTicketStatus();
+                    }
+                });
+
+                await WaitWiseRealtime.start();
+
+                // Join the room for this ticket
+                try {
+                    await conn.invoke("JoinTicket", currentTicketNumber);
+                    await conn.invoke("JoinDepartment", currentDepartmentId);
+                } catch (e) {
+                    console.warn("Could not join groups:", e);
+                }
+            });
+        </script>
+    }
+}

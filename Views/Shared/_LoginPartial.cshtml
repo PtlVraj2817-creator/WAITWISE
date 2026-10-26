@@ -1,0 +1,54 @@
+@using Microsoft.AspNetCore.Identity
+@using WaitWise.Models
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+
+<ul class="navbar-nav align-items-center">
+@if (SignInManager.IsSignedIn(User))
+{
+    var currentUser = await UserManager.GetUserAsync(User);
+    var isAdmin = User.IsInRole("Admin");
+    var isStaff = User.IsInRole("Staff");
+
+    <li class="nav-item me-2">
+        <span class="badge @(isAdmin ? "bg-danger" : "bg-primary") py-2 px-3 rounded-pill text-white fw-medium">
+            <i class="bi @(isAdmin ? "bi-shield-check" : "bi-person-badge") me-1"></i>
+            @(isAdmin ? "Admin" : "Staff")
+        </span>
+    </li>
+    <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle text-dark fw-medium" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-person-circle me-1"></i> @(currentUser?.FullName ?? User.Identity?.Name)
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3">
+            @if (isAdmin)
+            {
+                <li><a class="dropdown-item" asp-controller="Admin" asp-action="Index"><i class="bi bi-speedometer2 me-2"></i>Admin Dashboard</a></li>
+                <li><a class="dropdown-item" asp-controller="Admin" asp-action="Departments"><i class="bi bi-grid-3x3-gap me-2"></i>Departments</a></li>
+                <li><a class="dropdown-item" asp-controller="Admin" asp-action="Counters"><i class="bi bi-display me-2"></i>Counters</a></li>
+                <li><hr class="dropdown-divider"></li>
+            }
+            @if (isStaff || isAdmin)
+            {
+                <li><a class="dropdown-item" asp-controller="Staff" asp-action="Desk"><i class="bi bi-headset me-2"></i>Counter Desk</a></li>
+                <li><hr class="dropdown-divider"></li>
+            }
+            <li>
+                <form class="form-inline" asp-controller="Account" asp-action="Logout" method="post">
+                    <button type="submit" class="dropdown-item text-danger">
+                        <i class="bi bi-box-arrow-right me-2"></i>Sign Out
+                    </button>
+                </form>
+            </li>
+        </ul>
+    </li>
+}
+else
+{
+    <li class="nav-item">
+        <a class="btn btn-outline-primary btn-sm rounded-pill px-3 py-1 fw-semibold" asp-controller="Account" asp-action="Login">
+            <i class="bi bi-box-arrow-in-right me-1"></i> Staff / Admin Portal
+        </a>
+    </li>
+}
+</ul>

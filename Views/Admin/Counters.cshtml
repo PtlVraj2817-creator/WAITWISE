@@ -1,0 +1,159 @@
+@model WaitWise.ViewModels.CounterManageViewModel
+
+@{
+    ViewData["Title"] = "Manage Service Counters";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold text-dark mb-1">
+            <i class="bi bi-display text-primary me-2"></i> Service Counter Management
+        </h2>
+        <span class="text-muted">Configure physical and virtual service desks, assign departments, and manage station status.</span>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary rounded-pill px-3">
+        <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+    </a>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm rounded-4 mb-4" role="alert">
+        <i class="bi bi-check-circle-fill me-2 fs-5"></i> @Model.SuccessMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="row g-4">
+    <!-- Left Column: Add / Edit Counter Form -->
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+            <h5 class="fw-bold text-dark mb-3" id="counter-form-title">
+                <i class="bi bi-plus-circle text-primary me-2"></i> Add New Counter Desk
+            </h5>
+
+            <form asp-action="SaveCounter" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Id" id="counterId" />
+
+                <div class="form-floating mb-3">
+                    <input asp-for="Name" id="counterName" class="form-control rounded-3" placeholder="Counter 4" required />
+                    <label asp-for="Name">Counter Name (e.g. Counter 4) *</label>
+                    <span asp-validation-for="Name" class="text-danger small"></span>
+                </div>
+
+                <div class="form-floating mb-3">
+                    <select asp-for="DepartmentId" id="counterDeptId" class="form-select rounded-3" asp-items="Model.DepartmentOptions" required>
+                    </select>
+                    <label asp-for="DepartmentId">Assigned Department *</label>
+                    <span asp-validation-for="DepartmentId" class="text-danger small"></span>
+                </div>
+
+                <div class="form-check form-switch mb-4">
+                    <input asp-for="IsActive" id="counterActive" class="form-check-input" type="checkbox" role="switch" checked />
+                    <label asp-for="IsActive" class="form-check-label fw-semibold">Station is Online & Active</label>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold flex-grow-1">
+                        Save Counter
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-3" onclick="resetCounterForm()">
+                        Reset
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Column: Existing Counters Table -->
+    <div class="col-lg-7">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
+            <div class="card-header bg-white p-4 border-bottom">
+                <h5 class="fw-bold text-dark mb-0">Configured Stations (@Model.ExistingCounters.Count)</h5>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase text-muted">
+                        <tr>
+                            <th class="ps-4">Desk</th>
+                            <th>Department</th>
+                            <th>Operator</th>
+                            <th>Status</th>
+                            <th class="text-end pe-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in Model.ExistingCounters)
+                        {
+                            <tr>
+                                <td class="ps-4">
+                                    <strong class="text-dark">@c.Name</strong>
+                                    @if (!string.IsNullOrEmpty(c.CurrentTicketNumber))
+                                    {
+                                        <span class="badge bg-success-subtle text-success ms-1 small">
+                                            Serving @c.CurrentTicketNumber
+                                        </span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary-subtle text-primary border rounded-pill px-2 py-1">
+                                        @c.DepartmentName
+                                    </span>
+                                </td>
+                                <td>
+                                    <small class="text-muted"><i class="bi bi-person me-1"></i>@c.StaffName</small>
+                                </td>
+                                <td>
+                                    <span class="badge @(c.IsActive ? "bg-success-subtle text-success" : "bg-secondary-subtle text-secondary") rounded-pill px-2 py-1">
+                                        @(c.IsActive ? "Online" : "Offline")
+                                    </span>
+                                </td>
+                                <td class="text-end pe-4">
+                                    <div class="d-inline-flex gap-1">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle"
+                                                onclick="editCounter(@c.Id, '@c.Name', @c.DepartmentId, @c.IsActive.ToString().ToLower())"
+                                                title="Edit Counter">
+                                            <i class="bi bi-pencil-fill"></i>
+                                        </button>
+
+                                        <form asp-action="ToggleCounter" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@c.Id" />
+                                            <button type="submit" class="btn @(c.IsActive ? "btn-outline-warning" : "btn-outline-success") btn-sm rounded-circle"
+                                                    title="@(c.IsActive ? "Take Offline" : "Put Online")">
+                                                <i class="bi @(c.IsActive ? "bi-pause-fill" : "bi-play-fill")"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function editCounter(id, name, deptId, isActive) {
+            document.getElementById('counter-form-title').innerHTML = '<i class="bi bi-pencil-square text-warning me-2"></i> Edit Counter';
+            document.getElementById('counterId').value = id;
+            document.getElementById('counterName').value = name;
+            document.getElementById('counterDeptId').value = deptId;
+            document.getElementById('counterActive').checked = isActive;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function resetCounterForm() {
+            document.getElementById('counter-form-title').innerHTML = '<i class="bi bi-plus-circle text-primary me-2"></i> Add New Counter Desk';
+            document.getElementById('counterId').value = '0';
+            document.getElementById('counterName').value = '';
+            document.getElementById('counterActive').checked = true;
+        }
+    </script>
+}

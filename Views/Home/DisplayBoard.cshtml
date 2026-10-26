@@ -1,0 +1,275 @@
+@{
+    Layout = null; // Fullscreen TV display board
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WAITWISE — Live Public Display Board</title>
+    
+    <!-- Google Font: Inter & JetBrains Mono for ticket numbers -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap 5 CSS & Icons -->
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #f8fafc;
+            overflow-x: hidden;
+            user-select: none;
+        }
+        .ticket-font {
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 2px;
+        }
+        .counter-card {
+            background: #1e293b; /* Slate 800 */
+            border: 1px solid #334155;
+            transition: all 0.3s ease;
+        }
+        .counter-card.active-serving {
+            background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+            border-color: #10b981;
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.4);
+        }
+        .counter-card.newly-called {
+            animation: pulse-border 1.5s infinite;
+        }
+        @@keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); transform: scale(1); }
+            50% { box-shadow: 0 0 30px 10px rgba(16, 185, 129, 0.5); transform: scale(1.02); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); transform: scale(1); }
+        }
+        .up-next-badge {
+            background: #334155;
+            color: #cbd5e1;
+            font-size: 1.15rem;
+            padding: 8px 16px;
+        }
+    </style>
+</head>
+<body class="p-3 p-md-4 min-vh-100 d-flex flex-column">
+
+    <!-- Top Navigation / Header -->
+    <header class="d-flex justify-content-between align-items-center pb-3 mb-4 border-bottom border-secondary border-opacity-25">
+        <div class="d-flex align-items-center">
+            <span class="d-inline-flex align-items-center justify-content-center bg-primary text-white rounded-3 me-3" style="width: 48px; height: 48px;">
+                <i class="bi bi-hourglass-split fs-3"></i>
+            </span>
+            <div>
+                <h2 class="fw-bolder mb-0 text-white tracking-wide">WAIT<span class="text-primary">WISE</span></h2>
+                <small class="text-secondary text-uppercase fw-semibold" style="letter-spacing: 1.5px;">Live Queue Display System</small>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-4">
+            <button id="enableAudioBtn" class="btn btn-outline-warning btn-sm rounded-pill px-3 py-1 fw-bold" onclick="enableAudio()">
+                <i class="bi bi-volume-up-fill me-1"></i> Sound & Speech Enabled
+            </button>
+            <div class="text-end">
+                <div class="fs-4 fw-bolder text-white font-monospace" id="clock-display">00:00:00</div>
+                <small class="text-secondary" id="date-display">Date</small>
+            </div>
+            <span id="signalr-connection-badge" class="badge bg-success py-2 px-3 rounded-pill fs-6">
+                <i class="bi bi-broadcast"></i> Live
+            </span>
+        </div>
+    </header>
+
+    <!-- Main Live Queue Grid -->
+    <div class="row g-4 flex-grow-1">
+        
+        <!-- Left: Now Serving Counters -->
+        <div class="col-lg-7">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="fw-bold text-white text-uppercase tracking-wider mb-0">
+                    <i class="bi bi-megaphone-fill text-success me-2"></i> Now Serving
+                </h4>
+                <span class="text-secondary small">Active Stations</span>
+            </div>
+
+            <div class="row g-3" id="serving-counters-container">
+                <!-- Rendered dynamically via JavaScript -->
+                <div class="col-12 text-center text-muted py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2">Connecting to live station feeds...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Upcoming Queues by Department -->
+        <div class="col-lg-5">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="fw-bold text-white text-uppercase tracking-wider mb-0">
+                    <i class="bi bi-list-ol text-primary me-2"></i> Next in Line
+                </h4>
+                <span class="text-secondary small">Estimated Wait</span>
+            </div>
+
+            <div id="department-queues-container" class="d-flex flex-column gap-3">
+                <!-- Rendered dynamically via JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Announcement Ticker -->
+    <footer class="mt-auto pt-3 border-top border-secondary border-opacity-25 d-flex justify-content-between align-items-center text-secondary small">
+        <div>
+            <i class="bi bi-info-circle-fill text-primary me-1"></i> 
+            Please remain in the waiting area. When your ticket appears on screen, proceed to the designated counter.
+        </div>
+        <div>
+            Powered by <strong>WAITWISE Smart Predictor</strong>
+        </div>
+    </footer>
+
+    <!-- SignalR & Live Scripts -->
+    <script src="~/js/signalr/signalr.min.js"></script>
+    <script src="~/js/queue-realtime.js"></script>
+    <script>
+        let audioUnlocked = false;
+
+        function enableAudio() {
+            audioUnlocked = true;
+            WaitWiseRealtime.playChime();
+            const btn = document.getElementById("enableAudioBtn");
+            if (btn) {
+                btn.className = "btn btn-success btn-sm rounded-pill px-3 py-1 fw-bold";
+                btn.innerHTML = '<i class="bi bi-volume-up-fill me-1"></i> Sound Active';
+            }
+        }
+
+        // Live Clock
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock-display').innerText = now.toLocaleTimeString();
+            document.getElementById('date-display').innerText = now.toLocaleDateString(undefined, {
+                weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+            });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Fetch Board Data from Server
+        async function fetchBoardData() {
+            try {
+                const response = await fetch('/Home/GetDisplayBoardData');
+                if (!response.ok) return;
+                const data = await response.json();
+                renderServingCounters(data.servingCounters);
+                renderDepartmentQueues(data.departmentQueues);
+            } catch (err) {
+                console.error("Error fetching display board data:", err);
+            }
+        }
+
+        function renderServingCounters(counters) {
+            const container = document.getElementById('serving-counters-container');
+            if (!container) return;
+
+            if (!counters || counters.length === 0) {
+                container.innerHTML = '<div class="col-12 text-center text-secondary py-5">No active counters at this time.</div>';
+                return;
+            }
+
+            container.innerHTML = counters.map(c => `
+                <div class="col-md-6">
+                    <div class="card counter-card rounded-4 p-4 ${c.isServing ? 'active-serving' : ''}" id="counter-card-${c.counterId}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge ${c.isServing ? 'bg-success' : 'bg-secondary'} rounded-pill px-3 py-1 fw-bold">
+                                ${c.counterName}
+                            </span>
+                            <small class="text-white opacity-75">${c.departmentName}</small>
+                        </div>
+                        <div class="text-center py-2">
+                            ${c.isServing 
+                                ? `<span class="display-4 fw-bolder text-white ticket-font">${c.ticketNumber}</span>`
+                                : `<span class="fs-4 text-secondary text-uppercase fw-semibold">Available</span>`
+                            }
+                        </div>
+                        <div class="d-flex justify-content-between text-secondary small pt-2 border-top border-white border-opacity-10">
+                            <span>Operator: <strong>${c.staffName || 'Staff'}</strong></span>
+                            <span>${c.isServing ? 'Serving Now' : 'Idle'}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderDepartmentQueues(departments) {
+            const container = document.getElementById('department-queues-container');
+            if (!container) return;
+
+            if (!departments || departments.length === 0) {
+                container.innerHTML = '<div class="text-center text-secondary py-4">No active departments.</div>';
+                return;
+            }
+
+            container.innerHTML = departments.map(d => `
+                <div class="card bg-slate-800 border-0 rounded-4 p-3 shadow-sm" style="background: #1e293b; border: 1px solid #334155 !important;">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-primary rounded-pill px-2 py-1 fw-bold">${d.codePrefix}</span>
+                            <strong class="text-white">${d.departmentName}</strong>
+                        </div>
+                        <span class="badge ${d.estimatedWaitMinutes > 15 ? 'bg-danger' : 'bg-success'} rounded-pill px-2 py-1">
+                            ~${d.estimatedWaitMinutes}m wait
+                        </span>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                        ${d.upNextTickets && d.upNextTickets.length > 0 
+                            ? d.upNextTickets.map(t => `<span class="badge up-next-badge rounded-3 ticket-font">${t}</span>`).join('')
+                            : '<span class="text-secondary small">No tickets currently waiting</span>'
+                        }
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Initial data pull
+            await fetchBoardData();
+
+            // Connect to SignalR
+            const conn = WaitWiseRealtime.getConnection();
+
+            // Handle live ticket call
+            conn.on("TicketCalled", (callData) => {
+                console.log("Ticket called event received:", callData);
+
+                // Play Ding-Dong Chime and Speak announcement
+                WaitWiseRealtime.playChime();
+                if (callData && callData.ticketNumber) {
+                    WaitWiseRealtime.announceTicket(callData.ticketNumber, callData.counterName || "Counter");
+                }
+
+                // Refetch board data to refresh screen
+                fetchBoardData();
+            });
+
+            // Handle general queue updates
+            conn.on("QueueUpdated", () => {
+                fetchBoardData();
+            });
+
+            await WaitWiseRealtime.start();
+
+            // Join the DisplayBoard group
+            try {
+                await conn.invoke("JoinDisplayBoard");
+            } catch (err) {
+                console.warn("Could not join DisplayBoard group:", err);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,80 @@
+@model WaitWise.ViewModels.LoginViewModel
+
+@{
+    ViewData["Title"] = "Sign In — WaitWise";
+}
+
+<div class="row justify-content-center align-items-center mt-4">
+    <div class="col-md-5">
+        <div class="card shadow-lg border-0 rounded-4">
+            <div class="card-body p-4 p-md-5">
+                <div class="text-center mb-4">
+                    <div class="d-inline-flex align-items-center justify-content-center bg-primary text-white rounded-circle mb-3" style="width: 56px; height: 56px;">
+                        <i class="bi bi-shield-lock-fill fs-3"></i>
+                    </div>
+                    <h3 class="fw-bold text-dark">Staff & Admin Portal</h3>
+                    <p class="text-muted small">Sign in to manage service counters, call tickets, or configure departments.</p>
+                </div>
+
+                @if (!ViewData.ModelState.IsValid && ViewData.ModelState[string.Empty] != null)
+                {
+                    <div class="alert alert-danger py-2 small rounded-3 mb-3">
+                        @Html.ValidationSummary(true, "", new { @class = "text-danger mb-0" })
+                    </div>
+                }
+
+                <form asp-action="Login" method="post" asp-route-returnUrl="@ViewData["ReturnUrl"]">
+                    @Html.AntiForgeryToken()
+
+                    <div class="form-floating mb-3">
+                        <input asp-for="Email" id="loginEmail" class="form-control rounded-3" placeholder="name@example.com" />
+                        <label asp-for="Email">Email address</label>
+                        <span asp-validation-for="Email" class="text-danger small"></span>
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        <input asp-for="Password" id="loginPassword" class="form-control rounded-3" type="password" placeholder="Password" />
+                        <label asp-for="Password">Password</label>
+                        <span asp-validation-for="Password" class="text-danger small"></span>
+                    </div>
+
+                    <div class="form-check mb-4">
+                        <input asp-for="RememberMe" class="form-check-input" />
+                        <label asp-for="RememberMe" class="form-check-label text-muted small"></label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg w-100 rounded-3 fw-semibold shadow-sm mb-3">
+                        Sign In
+                    </button>
+                </form>
+
+                <!-- Convenient Quick-Fill for Demo / Testing -->
+                <div class="border-top pt-3 mt-2">
+                    <p class="text-muted small text-center mb-2 fw-semibold">Quick Demo Credentials</p>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm w-50 rounded-2" onclick="fillAdmin()">
+                            <i class="bi bi-person-gear"></i> Admin Demo
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm w-50 rounded-2" onclick="fillStaff()">
+                            <i class="bi bi-person-badge"></i> Staff Demo
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function fillAdmin() {
+            document.getElementById('loginEmail').value = 'admin@waitwise.local';
+            document.getElementById('loginPassword').value = 'Admin123!';
+        }
+        function fillStaff() {
+            document.getElementById('loginEmail').value = 'staff@waitwise.local';
+            document.getElementById('loginPassword').value = 'Staff123!';
+        }
+    </script>
+}

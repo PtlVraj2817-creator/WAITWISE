@@ -1,0 +1,191 @@
+@model WaitWise.ViewModels.AdminDashboardViewModel
+
+@{
+    ViewData["Title"] = "Administrator Control Center";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold text-dark mb-1">
+            <i class="bi bi-speedometer2 text-primary me-2"></i> System Administration
+        </h2>
+        <span class="text-muted">Real-time facility throughput, station health, and wait-time statistics.</span>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="Departments" class="btn btn-outline-primary rounded-pill px-3">
+            <i class="bi bi-grid-3x3-gap me-1"></i> Departments
+        </a>
+        <a asp-action="Counters" class="btn btn-outline-secondary rounded-pill px-3">
+            <i class="bi bi-display me-1"></i> Counters
+        </a>
+        <a asp-action="Analytics" class="btn btn-outline-dark rounded-pill px-3">
+            <i class="bi bi-bar-chart-line me-1"></i> Analytics
+        </a>
+    </div>
+</div>
+
+<!-- Primary System Metrics -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3">
+        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted small fw-bold text-uppercase">Waiting Now</span>
+                <span class="badge bg-primary-subtle text-primary rounded-circle p-2">
+                    <i class="bi bi-people-fill fs-5"></i>
+                </span>
+            </div>
+            <h3 class="fw-bold text-primary mb-0">@Model.TotalWaitingNow</h3>
+            <small class="text-muted">across all queues</small>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted small fw-bold text-uppercase">Active Desks</span>
+                <span class="badge bg-success-subtle text-success rounded-circle p-2">
+                    <i class="bi bi-headset fs-5"></i>
+                </span>
+            </div>
+            <h3 class="fw-bold text-success mb-0">@Model.ActiveCounters <small class="text-muted fs-6">/ @Model.TotalCounters</small></h3>
+            <small class="text-muted">stations online</small>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted small fw-bold text-uppercase">Served Today</span>
+                <span class="badge bg-info-subtle text-info rounded-circle p-2">
+                    <i class="bi bi-check2-circle fs-5"></i>
+                </span>
+            </div>
+            <h3 class="fw-bold text-info mb-0">@Model.TotalCompletedToday</h3>
+            <small class="text-muted">@Model.TotalNoShowToday no-show</small>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted small fw-bold text-uppercase">Avg Facility Wait</span>
+                <span class="badge bg-warning-subtle text-warning rounded-circle p-2">
+                    <i class="bi bi-hourglass-split fs-5"></i>
+                </span>
+            </div>
+            <h3 class="fw-bold text-warning mb-0">~@Model.OverallAvgWaitMinutes <small class="text-muted fs-6">mins</small></h3>
+            <small class="text-muted">current prediction</small>
+        </div>
+    </div>
+</div>
+
+<!-- Department Real-Time Queue & Prediction Breakdown -->
+<div class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden bg-white">
+    <div class="card-header bg-white p-4 border-bottom d-flex justify-content-between align-items-center">
+        <div>
+            <h5 class="fw-bold text-dark mb-0">Department Real-Time Status & Turnaround</h5>
+            <small class="text-muted">Dynamic weighted moving average service times computed by the predictor engine</small>
+        </div>
+        <a asp-action="Departments" class="btn btn-sm btn-outline-primary rounded-pill">Manage Departments</a>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light small text-uppercase text-muted">
+                <tr>
+                    <th class="ps-4">Prefix</th>
+                    <th>Department</th>
+                    <th>Waiting</th>
+                    <th>Active Desks</th>
+                    <th>Configured Time</th>
+                    <th>Predictor Dynamic Avg</th>
+                    <th>Est. Current Wait</th>
+                    <th class="text-end pe-4">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var d in Model.DepartmentOverviews)
+                {
+                    <tr>
+                        <td class="ps-4">
+                            <span class="badge bg-dark rounded-pill px-3 py-1 font-monospace">@d.CodePrefix</span>
+                        </td>
+                        <td>
+                            <strong class="text-dark">@d.Name</strong>
+                        </td>
+                        <td>
+                            <span class="badge @(d.WaitingCount > 0 ? "bg-primary" : "bg-light text-dark border") rounded-pill px-3 py-1">
+                                @d.WaitingCount
+                            </span>
+                        </td>
+                        <td>
+                            <span class="fw-semibold @(d.ActiveCountersCount > 0 ? "text-success" : "text-danger")">
+                                <i class="bi bi-circle-fill me-1" style="font-size: 8px;"></i>
+                                @d.ActiveCountersCount active
+                            </span>
+                        </td>
+                        <td>@d.DefaultTimeMinutes mins</td>
+                        <td>
+                            <strong class="text-primary">~@d.DynamicAvgDurationMinutes mins</strong>
+                        </td>
+                        <td>
+                            <span class="badge @(d.EstimatedWaitMinutes > 15 ? "bg-danger-subtle text-danger" : "bg-success-subtle text-success") px-2 py-1 rounded-pill">
+                                ~@d.EstimatedWaitMinutes mins
+                            </span>
+                        </td>
+                        <td class="text-end pe-4">
+                            @if (d.IsActive)
+                            {
+                                <span class="badge bg-success-subtle text-success rounded-pill px-2 py-1">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary-subtle text-secondary rounded-pill px-2 py-1">Inactive</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Recent Service Logs (Empirical Predictor Data) -->
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
+    <div class="card-header bg-white p-4 border-bottom d-flex justify-content-between align-items-center">
+        <div>
+            <h5 class="fw-bold text-dark mb-0">Recent Completed Consultations</h5>
+            <small class="text-muted">Recorded actual durations feeding the dynamic prediction model</small>
+        </div>
+        <a asp-action="Analytics" class="btn btn-sm btn-outline-dark rounded-pill">Full Analytics & Trends</a>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light small text-uppercase text-muted">
+                <tr>
+                    <th class="ps-4">Ticket</th>
+                    <th>Department</th>
+                    <th>Counter</th>
+                    <th>Duration Recorded</th>
+                    <th class="text-end pe-4">Completed At</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var log in Model.RecentServiceLogs)
+                {
+                    <tr>
+                        <td class="ps-4 font-monospace fw-bold">@log.TicketNumber</td>
+                        <td>@log.DepartmentName</td>
+                        <td>@log.CounterName</td>
+                        <td>
+                            <span class="badge bg-light text-dark border px-3 py-1 font-monospace">
+                                @log.DurationMinutes mins
+                            </span>
+                        </td>
+                        <td class="text-end pe-4 text-muted small">
+                            @log.CompletedAt.ToLocalTime().ToString("MMM dd, hh:mm tt")
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

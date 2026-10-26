@@ -1,0 +1,284 @@
+@model WaitWise.ViewModels.StaffDeskViewModel
+
+@{
+    ViewData["Title"] = $"Counter Operator Desk — {Model.CounterName}";
+}
+
+<div class="row align-items-center mb-4">
+    <div class="col-md-6">
+        <div class="d-flex align-items-center gap-3">
+            <span class="d-inline-flex align-items-center justify-content-center bg-primary text-white rounded-circle" style="width: 48px; height: 48px;">
+                <i class="bi bi-headset fs-4"></i>
+            </span>
+            <div>
+                <h3 class="fw-bold text-dark mb-0">@Model.CounterName</h3>
+                <span class="text-muted small">Department: <strong class="text-primary">@Model.DepartmentName</strong> (Prefix: @Model.DepartmentCodePrefix)</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 text-md-end mt-3 mt-md-0 d-flex justify-content-md-end align-items-center gap-3">
+        <!-- Switch Counter Dropdown -->
+        <form asp-action="Desk" method="get" class="d-inline-flex align-items-center gap-2">
+            <label class="small text-muted text-nowrap fw-semibold">Switch Desk:</label>
+            <select name="counterId" class="form-select form-select-sm rounded-pill fw-semibold border-secondary-subtle" onchange="this.form.submit()" asp-items="Model.AvailableCounters">
+            </select>
+        </form>
+
+        <span id="signalr-connection-badge" class="badge bg-success py-2 px-3 rounded-pill">
+            <i class="bi bi-broadcast"></i> Live
+        </span>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm rounded-4 mb-4" role="alert">
+        <i class="bi bi-check-circle-fill me-2 fs-5"></i> @Model.SuccessMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+@if (!string.IsNullOrEmpty(Model.WarningMessage))
+{
+    <div class="alert alert-warning alert-dismissible fade show border-0 shadow-sm rounded-4 mb-4" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i> @Model.WarningMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="row g-4">
+    <!-- Left Column: Active Station Operations -->
+    <div class="col-lg-6">
+        @if (Model.CurrentTicket != null)
+        {
+            <!-- Ticket Currently Being Served -->
+            <div class="card border-0 shadow-lg rounded-4 overflow-hidden mb-4">
+                <div class="card-header bg-success text-white p-4 text-center">
+                    <span class="badge bg-white text-success rounded-pill px-3 py-1 small fw-bold mb-2">
+                        <i class="bi bi-record-circle-fill text-danger me-1"></i> ACTIVE CONSULTATION IN PROGRESS
+                    </span>
+                    <h1 class="display-3 fw-bolder mb-1" style="font-family: monospace;">@Model.CurrentTicket.TicketNumber</h1>
+                    <h4 class="fw-medium mb-0 opacity-90">@Model.CurrentTicket.CustomerName</h4>
+                    @if (!string.IsNullOrEmpty(Model.CurrentTicket.CustomerPhone))
+                    {
+                        <small class="text-white opacity-75"><i class="bi bi-telephone me-1"></i> @Model.CurrentTicket.CustomerPhone</small>
+                    }
+                </div>
+
+                <div class="card-body p-4 p-md-5">
+                    <!-- Live Consultation Stopwatch -->
+                    <div class="text-center mb-4">
+                        <span class="text-muted small fw-bold text-uppercase d-block mb-1">Consultation Time</span>
+                        <div class="display-5 fw-bold text-dark font-monospace" id="consultation-stopwatch">
+                            00:00
+                        </div>
+                        <small class="text-muted">Called at @Model.CurrentTicket.CalledAt.ToLocalTime().ToString("hh:mm tt")</small>
+                    </div>
+
+                    <div class="d-grid gap-3">
+                        <form asp-action="CompleteCurrent" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="counterId" value="@Model.CounterId" />
+                            <button type="submit" class="btn btn-success btn-lg w-100 rounded-pill fw-bold py-3 shadow-sm">
+                                <i class="bi bi-check2-circle me-2"></i> Complete Service & Record Duration
+                            </button>
+                        </form>
+
+                        <div class="d-flex gap-2">
+                            <form asp-action="Recall" method="post" class="flex-grow-1">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="counterId" value="@Model.CounterId" />
+                                <button type="submit" class="btn btn-outline-primary rounded-pill fw-semibold w-100 py-2">
+                                    <i class="bi bi-bell-fill me-1"></i> Recall Customer (Chime Again)
+                                </button>
+                            </form>
+
+                            <form asp-action="MarkNoShow" method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="counterId" value="@Model.CounterId" />
+                                <button type="submit" class="btn btn-outline-danger rounded-pill fw-semibold px-4 py-2" 
+                                        onclick="return confirm('Are you sure you want to mark this ticket as No-Show?')">
+                                    <i class="bi bi-person-x me-1"></i> No-Show
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <!-- Station is Available / Call Next Ticket Card -->
+            <div class="card border-0 shadow-sm rounded-4 p-5 text-center bg-white mb-4">
+                <div class="d-inline-flex align-items-center justify-content-center bg-primary-subtle text-primary rounded-circle mx-auto mb-3" style="width: 72px; height: 72px;">
+                    <i class="bi bi-person-check fs-1"></i>
+                </div>
+                <h3 class="fw-bold text-dark mb-1">Desk is Available</h3>
+                <p class="text-muted mb-4">
+                    Ready to receive the next customer for <strong>@Model.DepartmentName</strong>.
+                </p>
+
+                <form asp-action="CallNext" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="counterId" value="@Model.CounterId" />
+                    <button type="submit" class="btn btn-primary btn-lg rounded-pill px-5 py-3 fw-bold shadow-lg" @(Model.WaitingTickets.Any() ? "" : "disabled")>
+                        <i class="bi bi-megaphone-fill me-2"></i> CALL NEXT TICKET
+                    </button>
+                </form>
+
+                @if (!Model.WaitingTickets.Any())
+                {
+                    <div class="text-muted small mt-3">
+                        <i class="bi bi-info-circle me-1"></i> No tickets currently waiting in line.
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- Staff Shift Performance Metrics Widget -->
+        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-graph-up text-primary me-2"></i> Your Shift Summary</h6>
+            <div class="row g-3 text-center">
+                <div class="col-6">
+                    <div class="p-3 bg-light rounded-3 border">
+                        <h3 class="fw-bold text-success mb-0">@Model.CompletedTodayCount</h3>
+                        <span class="text-muted small">Consultations Completed</span>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-3 bg-light rounded-3 border">
+                        <h3 class="fw-bold text-primary mb-0">~@Model.AverageServiceDurationMinutes <small class="fs-6">mins</small></h3>
+                        <span class="text-muted small">Dept Average Time</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Waiting Queue List -->
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
+            <div class="card-header bg-white p-4 border-bottom d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="fw-bold text-dark mb-0">
+                        <i class="bi bi-people-fill text-primary me-2"></i> Waiting Line
+                    </h5>
+                    <small class="text-muted">Tickets in queue for @Model.DepartmentName</small>
+                </div>
+                <span class="badge bg-primary rounded-pill px-3 py-2 fw-semibold">
+                    @Model.WaitingTickets.Count waiting
+                </span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase text-muted">
+                        <tr>
+                            <th class="ps-4">#</th>
+                            <th>Ticket</th>
+                            <th>Customer</th>
+                            <th>Est. Wait</th>
+                            <th class="text-end pe-4">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="waiting-tickets-tbody">
+                        @if (Model.WaitingTickets.Any())
+                        {
+                            foreach (var item in Model.WaitingTickets)
+                            {
+                                <tr>
+                                    <td class="ps-4 fw-bold text-muted">@item.PositionInLine</td>
+                                    <td>
+                                        <span class="badge bg-dark rounded-pill px-3 py-1 font-monospace fs-6">
+                                            @item.TicketNumber
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <strong class="text-dark d-block">@item.CustomerName</strong>
+                                        <small class="text-muted">@item.CreatedAt.ToLocalTime().ToString("hh:mm tt")</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-warning-subtle text-warning-emphasis rounded-pill px-2 py-1">
+                                            ~@item.EstimatedWaitMinutes mins
+                                        </span>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <form asp-action="CallSpecific" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="counterId" value="@Model.CounterId" />
+                                            <input type="hidden" name="ticketId" value="@item.TicketId" />
+                                            <button type="submit" class="btn btn-outline-primary btn-sm rounded-pill px-3" 
+                                                    @(Model.CurrentTicket != null ? "disabled" : "") title="Call this ticket directly">
+                                                Call <i class="bi bi-arrow-right"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center py-5 text-muted">
+                                    <i class="bi bi-inbox fs-2 text-secondary d-block mb-2"></i>
+                                    Waiting line is clear. No pending tickets.
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/signalr/signalr.min.js"></script>
+    <script src="~/js/queue-realtime.js"></script>
+    <script>
+        const currentCounterId = @Model.CounterId;
+        const currentDeptId = @Model.DepartmentId;
+
+        // Stopwatch Timer for Active Consultation
+        @if (Model.CurrentTicket != null)
+        {
+            <text>
+            const calledTime = new Date("@Model.CurrentTicket.CalledAt.ToString("o")").getTime();
+
+            function updateStopwatch() {
+                const now = new Date().getTime();
+                const diffMs = Math.max(0, now - calledTime);
+                const totalSec = Math.floor(diffMs / 1000);
+                const minutes = Math.floor(totalSec / 60);
+                const seconds = totalSec % 60;
+
+                const formatted = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+                const el = document.getElementById('consultation-stopwatch');
+                if (el) el.innerText = formatted;
+            }
+            setInterval(updateStopwatch, 1000);
+            updateStopwatch();
+            </text>
+        }
+
+        // Live Queue Realtime Listener
+        document.addEventListener('DOMContentLoaded', async () => {
+            const conn = WaitWiseRealtime.getConnection();
+
+            conn.on("QueueUpdated", (deptId) => {
+                if (deptId === currentDeptId || !deptId) {
+                    console.log("Queue updated for department, refreshing desk data...");
+                    // Refresh desk to show new waiting tickets
+                    setTimeout(() => location.reload(), 1000);
+                }
+            });
+
+            await WaitWiseRealtime.start();
+
+            try {
+                await conn.invoke("JoinDepartment", currentDeptId);
+            } catch (err) {
+                console.warn("Could not join department group:", err);
+            }
+        });
+    </script>
+}

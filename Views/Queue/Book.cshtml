@@ -1,0 +1,110 @@
+@model WaitWise.ViewModels.BookTicketViewModel
+
+@{
+    ViewData["Title"] = "Get a Queue Ticket";
+}
+
+<div class="row justify-content-center my-4">
+    <div class="col-lg-8">
+        <div class="text-center mb-4">
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1 fw-bold mb-2">
+                Digital Self-Service Kiosk
+            </span>
+            <h2 class="fw-bold text-dark">Take Your Queue Ticket</h2>
+            <p class="text-muted">Choose your desired service, enter your name, and receive your digital ticket with live wait predictions.</p>
+        </div>
+
+        <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="card-body p-4 p-md-5">
+                <form asp-action="Book" method="post">
+                    @Html.AntiForgeryToken()
+
+                    <!-- Step 1: Select Department -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-dark fs-5 mb-3">
+                            <span class="badge bg-primary rounded-circle me-2" style="width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;">1</span>
+                            Select Department / Service
+                        </label>
+
+                        <div class="row g-3">
+                            @foreach (var dept in Model.DepartmentCards)
+                            {
+                                <div class="col-md-4">
+                                    <label class="card h-100 p-3 border rounded-3 cursor-pointer department-card @(dept.Id == Model.DepartmentId ? "border-primary bg-primary-subtle" : "bg-light")" 
+                                           style="cursor: pointer;">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <input type="radio" asp-for="DepartmentId" value="@dept.Id" 
+                                                   class="form-check-input me-2 dept-radio" 
+                                                   checked="@(dept.Id == Model.DepartmentId ? "checked" : null)" />
+                                            <span class="badge bg-dark text-white rounded-pill px-2 py-1 small">
+                                                Prefix: @dept.CodePrefix
+                                            </span>
+                                        </div>
+                                        <strong class="text-dark d-block mb-1">@dept.Name</strong>
+                                        <span class="text-muted small d-block mb-2">@dept.Description</span>
+                                        <div class="mt-auto pt-2 border-top small text-primary fw-semibold">
+                                            <i class="bi bi-clock-history me-1"></i> ~@dept.EstimatedWaitMinutes mins wait
+                                        </div>
+                                    </label>
+                                </div>
+                            }
+                        </div>
+                        <span asp-validation-for="DepartmentId" class="text-danger small mt-1 d-block"></span>
+                    </div>
+
+                    <!-- Step 2: Customer Information -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-dark fs-5 mb-3">
+                            <span class="badge bg-primary rounded-circle me-2" style="width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;">2</span>
+                            Your Information
+                        </label>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <input asp-for="CustomerName" class="form-control rounded-3" placeholder="Jane Doe" required />
+                                    <label asp-for="CustomerName">Your Full Name *</label>
+                                    <span asp-validation-for="CustomerName" class="text-danger small"></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <input asp-for="CustomerPhone" class="form-control rounded-3" placeholder="+1234567890" />
+                                    <label asp-for="CustomerPhone">Mobile Phone (Optional)</label>
+                                    <span asp-validation-for="CustomerPhone" class="text-danger small"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg rounded-pill fw-bold shadow-sm py-3">
+                            <i class="bi bi-check2-circle me-2"></i> Issue My Digital Ticket
+                        </button>
+                        <a asp-controller="Home" asp-action="Index" class="btn btn-link text-muted text-decoration-none text-center">
+                            Cancel and Return to Home
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.querySelectorAll('.dept-radio').forEach(radio => {
+            radio.addEventListener('change', function () {
+                document.querySelectorAll('.department-card').forEach(card => {
+                    card.classList.remove('border-primary', 'bg-primary-subtle');
+                    card.classList.add('bg-light');
+                });
+                if (this.checked) {
+                    this.closest('.department-card').classList.add('border-primary', 'bg-primary-subtle');
+                    this.closest('.department-card').classList.remove('bg-light');
+                }
+            });
+        });
+    </script>
+}

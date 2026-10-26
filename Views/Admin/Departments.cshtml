@@ -1,0 +1,171 @@
+@model WaitWise.ViewModels.DepartmentManageViewModel
+
+@{
+    ViewData["Title"] = "Manage Departments";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold text-dark mb-1">
+            <i class="bi bi-grid-3x3-gap text-primary me-2"></i> Department Management
+        </h2>
+        <span class="text-muted">Configure service categories, ticket prefixes, and default consultation times.</span>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary rounded-pill px-3">
+        <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+    </a>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm rounded-4 mb-4" role="alert">
+        <i class="bi bi-check-circle-fill me-2 fs-5"></i> @Model.SuccessMessage
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<div class="row g-4">
+    <!-- Left Column: Add / Edit Department Form -->
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
+            <h5 class="fw-bold text-dark mb-3" id="form-title">
+                <i class="bi bi-plus-circle text-primary me-2"></i> Add New Department
+            </h5>
+
+            <form asp-action="SaveDepartment" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="Id" id="deptId" />
+
+                <div class="form-floating mb-3">
+                    <input asp-for="Name" id="deptName" class="form-control rounded-3" placeholder="Cardiology" required />
+                    <label asp-for="Name">Department Name *</label>
+                    <span asp-validation-for="Name" class="text-danger small"></span>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <div class="form-floating">
+                            <input asp-for="CodePrefix" id="deptPrefix" class="form-control rounded-3 text-uppercase" placeholder="A" maxlength="5" required />
+                            <label asp-for="CodePrefix">Prefix (e.g. A) *</label>
+                            <span asp-validation-for="CodePrefix" class="text-danger small"></span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="form-floating">
+                            <input asp-for="DefaultServiceTimeMinutes" id="deptTime" class="form-control rounded-3" placeholder="10" type="number" min="1" max="240" required />
+                            <label asp-for="DefaultServiceTimeMinutes">Default Mins *</label>
+                            <span asp-validation-for="DefaultServiceTimeMinutes" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-floating mb-3">
+                    <textarea asp-for="Description" id="deptDesc" class="form-control rounded-3" style="height: 100px" placeholder="Details"></textarea>
+                    <label asp-for="Description">Description</label>
+                    <span asp-validation-for="Description" class="text-danger small"></span>
+                </div>
+
+                <div class="form-check form-switch mb-4">
+                    <input asp-for="IsActive" id="deptActive" class="form-check-input" type="checkbox" role="switch" checked />
+                    <label asp-for="IsActive" class="form-check-label fw-semibold">Active & Available in Kiosk</label>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold flex-grow-1">
+                        Save Department
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-3" onclick="resetForm()">
+                        Reset
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Column: Existing Departments Table -->
+    <div class="col-lg-7">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
+            <div class="card-header bg-white p-4 border-bottom">
+                <h5 class="fw-bold text-dark mb-0">Configured Departments (@Model.ExistingDepartments.Count)</h5>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase text-muted">
+                        <tr>
+                            <th class="ps-4">Prefix</th>
+                            <th>Name</th>
+                            <th>Default Time</th>
+                            <th>Status</th>
+                            <th class="text-end pe-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var dept in Model.ExistingDepartments)
+                        {
+                            <tr>
+                                <td class="ps-4">
+                                    <span class="badge bg-dark rounded-pill px-3 py-1 font-monospace">@dept.CodePrefix</span>
+                                </td>
+                                <td>
+                                    <strong class="text-dark d-block">@dept.Name</strong>
+                                    <small class="text-muted">@dept.Description</small>
+                                </td>
+                                <td>@dept.DefaultServiceTimeMinutes mins</td>
+                                <td>
+                                    <span class="badge @(dept.IsActive ? "bg-success-subtle text-success" : "bg-secondary-subtle text-secondary") rounded-pill px-2 py-1">
+                                        @(dept.IsActive ? "Active" : "Inactive")
+                                    </span>
+                                </td>
+                                <td class="text-end pe-4">
+                                    <div class="d-inline-flex gap-1">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle" 
+                                                onclick="editDepartment(@dept.Id, '@dept.Name', '@dept.CodePrefix', @dept.DefaultServiceTimeMinutes, '@dept.Description', @dept.IsActive.ToString().ToLower())"
+                                                title="Edit Department">
+                                            <i class="bi bi-pencil-fill"></i>
+                                        </button>
+
+                                        <form asp-action="ToggleDepartment" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@dept.Id" />
+                                            <button type="submit" class="btn @(dept.IsActive ? "btn-outline-warning" : "btn-outline-success") btn-sm rounded-circle"
+                                                    title="@(dept.IsActive ? "Deactivate" : "Activate")">
+                                                <i class="bi @(dept.IsActive ? "bi-pause-fill" : "bi-play-fill")"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function editDepartment(id, name, prefix, time, desc, isActive) {
+            document.getElementById('form-title').innerHTML = '<i class="bi bi-pencil-square text-warning me-2"></i> Edit Department';
+            document.getElementById('deptId').value = id;
+            document.getElementById('deptName').value = name;
+            document.getElementById('deptPrefix').value = prefix;
+            document.getElementById('deptTime').value = time;
+            document.getElementById('deptDesc').value = desc || '';
+            document.getElementById('deptActive').checked = isActive;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function resetForm() {
+            document.getElementById('form-title').innerHTML = '<i class="bi bi-plus-circle text-primary me-2"></i> Add New Department';
+            document.getElementById('deptId').value = '0';
+            document.getElementById('deptName').value = '';
+            document.getElementById('deptPrefix').value = 'A';
+            document.getElementById('deptTime').value = '10';
+            document.getElementById('deptDesc').value = '';
+            document.getElementById('deptActive').checked = true;
+        }
+    </script>
+}

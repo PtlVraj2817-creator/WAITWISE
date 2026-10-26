@@ -1,0 +1,153 @@
+@model WaitWise.ViewModels.HomeDashboardViewModel
+
+@{
+    ViewData["Title"] = "Smart Waiting Predictor & Live Queue Management";
+}
+
+<!-- Hero Section -->
+<div class="row align-items-center py-4 mb-4">
+    <div class="col-lg-7">
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2 fw-semibold mb-3">
+            <i class="bi bi-cpu me-1"></i> AI & Statistically Powered Queue Predictor
+        </span>
+        <h1 class="display-5 fw-bold text-dark lh-sm mb-3">
+            Wait Less, <span class="text-primary">Know Exactly</span> When You'll Be Served.
+        </h1>
+        <p class="lead text-muted mb-4">
+            WAITWISE calculates real-time estimated waiting times using historical service patterns, desk capacity, and active queue bottlenecks. Get your digital ticket or monitor live progress instantly.
+        </p>
+        <div class="d-flex flex-wrap gap-3">
+            <a asp-controller="Queue" asp-action="Book" class="btn btn-primary btn-lg rounded-pill px-4 shadow-sm fw-semibold">
+                <i class="bi bi-ticket-perforated-fill me-2"></i> Get a Queue Ticket
+            </a>
+            <a asp-controller="Queue" asp-action="Track" class="btn btn-outline-secondary btn-lg rounded-pill px-4 fw-semibold">
+                <i class="bi bi-geo-alt-fill me-2"></i> Track Your Ticket
+            </a>
+            <a asp-controller="Home" asp-action="DisplayBoard" target="_blank" class="btn btn-outline-dark btn-lg rounded-pill px-4 fw-semibold">
+                <i class="bi bi-tv me-2"></i> Public Display Board
+            </a>
+        </div>
+    </div>
+    <div class="col-lg-5 mt-4 mt-lg-0">
+        <!-- Live System Metric Cards -->
+        <div class="card border-0 shadow-lg rounded-4 overflow-hidden bg-white">
+            <div class="card-header bg-primary text-white p-3 d-flex justify-content-between align-items-center">
+                <span class="fw-bold"><i class="bi bi-activity me-2"></i> Live Facility Metrics</span>
+                <span class="badge bg-white text-primary rounded-pill small">Auto-Updated</span>
+            </div>
+            <div class="card-body p-4">
+                <div class="row g-3 text-center">
+                    <div class="col-6">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <h2 class="fw-bold text-primary mb-1">@Model.TotalWaitingToday</h2>
+                            <span class="text-muted small fw-medium">Currently Waiting</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <h2 class="fw-bold text-success mb-1">@Model.TotalServedToday</h2>
+                            <span class="text-muted small fw-medium">Completed Today</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <h2 class="fw-bold text-info mb-1">@Model.ActiveCountersCount</h2>
+                            <span class="text-muted small fw-medium">Active Desks</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <h2 class="fw-bold text-warning mb-1">~@Model.AverageWaitTimeMinutes <small class="fs-6">m</small></h2>
+                            <span class="text-muted small fw-medium">Avg Wait Time</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Live Department Queues Section -->
+<div class="my-5">
+    <div class="d-flex justify-content-between align-items-end mb-4">
+        <div>
+            <h3 class="fw-bold text-dark mb-1">Current Department Queues</h3>
+            <p class="text-muted mb-0">Check real-time wait times and active load before joining a line.</p>
+        </div>
+        <span id="signalr-connection-badge" class="badge bg-success rounded-pill px-3 py-2">
+            <i class="bi bi-broadcast me-1"></i> Live Connected
+        </span>
+    </div>
+
+    <div class="row g-4" id="department-cards-container">
+        @foreach (var dept in Model.Departments)
+        {
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm rounded-4 hover-shadow transition">
+                    <div class="card-body p-4 d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <span class="badge bg-secondary-subtle text-secondary border rounded-pill px-3 py-1 fw-bold fs-6">
+                                Prefix: @dept.CodePrefix
+                            </span>
+                            <span class="badge @(dept.EstimatedWaitMinutes > 15 ? "bg-danger-subtle text-danger" : "bg-success-subtle text-success") rounded-pill px-3 py-1 fw-semibold">
+                                <i class="bi bi-stopwatch me-1"></i> ~@dept.EstimatedWaitMinutes mins wait
+                            </span>
+                        </div>
+
+                        <h5 class="fw-bold text-dark mb-2">@dept.Name</h5>
+                        <p class="text-muted small flex-grow-1">@dept.Description</p>
+
+                        <div class="bg-light p-3 rounded-3 mb-3 border">
+                            <div class="d-flex justify-content-between mb-1 small text-muted">
+                                <span><i class="bi bi-people me-1"></i> Waiting in Line:</span>
+                                <strong class="text-dark">@dept.WaitingCount person(s)</strong>
+                            </div>
+                            <div class="d-flex justify-content-between small text-muted">
+                                <span><i class="bi bi-display me-1"></i> Open Desks:</span>
+                                <strong class="text-dark">@dept.ActiveCounters active</strong>
+                            </div>
+                        </div>
+
+                        <a asp-controller="Queue" asp-action="Book" asp-route-departmentId="@dept.Id" 
+                           class="btn btn-outline-primary w-100 rounded-3 fw-semibold">
+                            Get Ticket for @dept.CodePrefix <i class="bi bi-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Role Portals Shortcut Banner -->
+<div class="card border-0 bg-dark text-white rounded-4 p-4 p-md-5 my-5 shadow">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h4 class="fw-bold mb-2"><i class="bi bi-shield-lock me-2 text-warning"></i> Operating a Service Counter?</h4>
+            <p class="text-secondary mb-md-0">Staff can log in to call next tickets, manage consultations, and mark tickets completed with instant synchronization.</p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <a asp-controller="Account" asp-action="Login" class="btn btn-warning btn-lg rounded-pill px-4 fw-bold shadow-sm">
+                Staff & Admin Login <i class="bi bi-box-arrow-in-right ms-1"></i>
+            </a>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/signalr/signalr.min.js"></script>
+    <script src="~/js/queue-realtime.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const conn = WaitWiseRealtime.getConnection();
+
+            // When any queue changes, reload page metrics gently
+            conn.on("QueueUpdated", () => {
+                console.log("Queue update broadcast received, refreshing view...");
+                setTimeout(() => location.reload(), 1000);
+            });
+
+            await WaitWiseRealtime.start();
+        });
+    </script>
+}
